@@ -47,7 +47,7 @@ output_builder_t * make_builder() {
   return (output_builder_t *) malloc(sizeof(output_builder_t));
 }
 
-char * make_result_buffer(int len) {
+char * make_result_buffer(long len) {
   return (char *) malloc(len * sizeof(unsigned int));
 }
 
@@ -67,7 +67,7 @@ str_camelize(VALUE self, VALUE rb_string, VALUE rb_uppercase_first_letter, VALUE
   int current_character_size;
 
   const int underscore = 95;
-  char capitalize = 0;
+  char capitalize = rb_uppercase_first_letter == Qtrue ? 1 : 0;
 
   while (string < end) {
     unsigned int current_character = rb_enc_codepoint_len(string, end, &current_character_size, encoding);
