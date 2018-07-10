@@ -1,5 +1,5 @@
-require "fast_camelize/version"
+require 'fast_camelize/version'
+require 'fast_camelize.bundle'
 
 module FastCamelize
-  # Your code goes here...
 end
