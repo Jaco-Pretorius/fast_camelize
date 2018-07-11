@@ -93,10 +93,20 @@ str_camelize(VALUE self, VALUE rb_input, VALUE rb_uppercase_first_letter, VALUE 
 
   char capitalize = RTEST(rb_uppercase_first_letter);
 
+  const int underscore = 95;
+  char capitalize = 0;
+  int first_character = 1;
+
   while (string < end) {
     unsigned int current_character = rb_enc_codepoint_len(string, end, &current_character_size, encoding);
 
-    if (capitalize) {
+    if (first_character) {
+      if (rb_uppercase_first_letter) {
+        current_character = rb_enc_toupper(current_character, encoding);
+      } else {
+        current_character = rb_enc_tolower(current_character, encoding);
+      }
+    } else if (capitalize) {
       current_character = rb_enc_toupper(current_character, encoding);
       capitalize = 0;
     } else {
@@ -111,6 +121,8 @@ str_camelize(VALUE self, VALUE rb_input, VALUE rb_uppercase_first_letter, VALUE 
       builder.result_size += current_character_size;
     }
     string += current_character_size;
+
+    first_character = 0;
   }
 
   VALUE result = rb_enc_str_new(builder.result, builder.result_size, encoding);
