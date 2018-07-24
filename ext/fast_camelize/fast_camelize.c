@@ -2,11 +2,7 @@
 #include <ruby/encoding.h>
 #include <stdlib.h>
 
-typedef struct current_character {
-  unsigned int value;
-
-  int size;
-} current_character_t;
+#define UNDERSCORE 95
 
 typedef struct output_builder {
   enum state {
@@ -24,22 +20,22 @@ typedef struct output_builder {
 /* builder_result_push_char(builder_t *builder, unsigned int character, int size, */
                          /* rb_encoding *encoding) { */
   /* if (character_is_upper(character)) { */
-    /* if (builder->pushNext == 1) { */
-      /* builder->pushNext = 0; */
+    /* if (builder.pushNext == 1) { */
+      /* builder.pushNext = 0; */
       /* builder_result_push_literal(builder, '_'); */
     /* } */
 
-    /* builder->result[builder->result_size++] = (char) character - 'A' + 'a'; */
+    /* builder.result[builder.result_size++] = (char) character - 'A' + 'a'; */
     /* return; */
   /* } */
 
-  /* builder->pushNext = (character_is_lower(character) || character_is_digit(character)); */
+  /* builder.pushNext = (character_is_lower(character) || character_is_digit(character)); */
 
   /* if (encoding == NULL) { */
-    /* builder->result[builder->result_size++] = (char) character; */
+    /* builder.result[builder.result_size++] = (char) character; */
   /* } else { */
-    /* rb_enc_mbcput(character, &builder->result[builder->result_size], encoding); */
-    /* builder->result_size += size; */
+    /* rb_enc_mbcput(character, &builder.result[builder.result_size], encoding); */
+    /* builder.result_size += size; */
   /* } */
 /* } */
 
@@ -52,22 +48,50 @@ char * make_result_buffer(long len) {
 }
 
 static VALUE
-str_camelize(VALUE self, VALUE rb_string, VALUE rb_uppercase_first_letter, VALUE rb_acronyms_array_length, VALUE rb_acronyms_array) {
+str_camelize(VALUE self, VALUE rb_input, VALUE rb_uppercase_first_letter, VALUE rb_acronyms_array) {
 
-  Check_Type(rb_string, T_STRING);
+#ifdef DEBUG
+  long int acronym_array_size = RARRAY_LEN(rb_acronyms_array);
+  if (acronym_array_size) {
+    printf("Got an array of size %ld\n", acronym_array_size);
+    for (int i = 0; i < acronym_array_size; i++) {
+      printf("index %d: %s\n", i, RSTRING_PTR(rb_ary_entry(rb_acronyms_array, i)));
+    }
+  }
+#endif
 
-  //current_character_t *current_character = (current_character_t *) malloc(sizeof(current_character_t));
-  output_builder_t *builder = make_builder();
-  builder->result = make_result_buffer(RSTRING_LEN(rb_string));
-  builder->result_size = 0;
+  VALUE rb_string;
+
+  switch (TYPE(rb_input)) {
+    case T_STRING:
+      rb_string = rb_input;
+      break;
+    case T_SYMBOL:
+      rb_string = rb_sym_to_s(rb_input);
+      break;
+    default:
+      rb_raise(rb_eRuntimeError, "wrong argument type ");
+  }
+
+  char resultBuffer[1024];
+
+  output_builder_t builder;
+  int need_to_free_builder_buffer = 0;
+  if (RSTRING_LEN(rb_string) < 1024) {
+    builder.result = resultBuffer;
+    need_to_free_builder_buffer = 0;
+  } else {
+    builder.result = make_result_buffer(RSTRING_LEN(rb_string));
+    need_to_free_builder_buffer = 1;
+  }
+  builder.result_size = 0;
 
   rb_encoding *encoding = rb_enc_from_index(ENCODING_GET(rb_string));
   char *string = RSTRING_PTR(rb_string);
   char *end = RSTRING_END(rb_string);
   int current_character_size;
 
-  const int underscore = 95;
-  char capitalize = rb_uppercase_first_letter == Qtrue ? 1 : 0;
+  char capitalize = RTEST(rb_uppercase_first_letter);
 
   while (string < end) {
     unsigned int current_character = rb_enc_codepoint_len(string, end, &current_character_size, encoding);
@@ -75,24 +99,25 @@ str_camelize(VALUE self, VALUE rb_string, VALUE rb_uppercase_first_letter, VALUE
     if (capitalize) {
       current_character = rb_enc_toupper(current_character, encoding);
       capitalize = 0;
+    } else {
+      current_character = rb_enc_tolower(current_character, encoding);
     }
 
-    if (current_character == underscore) {
+    if (current_character == UNDERSCORE) {
       // skip and capitalize next character!
       capitalize = 1;
     } else {
-      rb_enc_mbcput(current_character, &builder->result[builder->result_size], encoding);
-      builder->result_size += current_character_size;
+      rb_enc_mbcput(current_character, &builder.result[builder.result_size], encoding);
+      builder.result_size += current_character_size;
     }
     string += current_character_size;
   }
-  //builder_flush(builder);
 
-  VALUE result = rb_enc_str_new(builder->result, builder->result_size, encoding);
+  VALUE result = rb_enc_str_new(builder.result, builder.result_size, encoding);
 
-  //free(current_character);
-  free(builder->result);
-  free(builder);
+  if (need_to_free_builder_buffer) {
+    free(builder.result);
+  }
 
   return result;
 }
@@ -100,5 +125,5 @@ str_camelize(VALUE self, VALUE rb_string, VALUE rb_uppercase_first_letter, VALUE
 void
 Init_fast_camelize(void) {
   VALUE rb_cFastCamelize = rb_define_module("FastCamelize");
-  rb_define_singleton_method(rb_cFastCamelize, "camelize", str_camelize, 4);
+  rb_define_singleton_method(rb_cFastCamelize, "camelize", str_camelize, 3);
 }
