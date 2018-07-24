@@ -1,6 +1,7 @@
 #include <ruby.h>
 #include <ruby/encoding.h>
 #include <stdlib.h>
+#include <string.h>
 
 #define UNDERSCORE 95
 
@@ -13,6 +14,9 @@ typedef struct output_builder {
 
   char *result;
   long result_size;
+
+  char *segment;
+  long segment_size;
 
 } output_builder_t;
 
@@ -75,6 +79,9 @@ str_camelize(VALUE self, VALUE rb_input, VALUE rb_uppercase_first_letter, VALUE 
 
   char resultBuffer[1024];
 
+  Check_Type(rb_string, T_STRING);
+  Check_Type(rb_acronyms_array_length, T_FIXNUM);
+
   output_builder_t builder;
   int need_to_free_builder_buffer = 0;
   if (RSTRING_LEN(rb_string) < 1024) {
@@ -96,6 +103,13 @@ str_camelize(VALUE self, VALUE rb_input, VALUE rb_uppercase_first_letter, VALUE 
   const int underscore = 95;
   char capitalize = 0;
   int first_character = 1;
+
+  int i;
+  for (i = 0; i < FIX2INT(rb_acronyms_array_length); i++) {
+    VALUE rb_acronym = rb_ary_entry(rb_acronyms_array, i);
+    char *acronym = StringValuePtr(rb_acronym);
+    printf("%s\n", acronym);
+  }
 
   while (string < end) {
     unsigned int current_character = rb_enc_codepoint_len(string, end, &current_character_size, encoding);
