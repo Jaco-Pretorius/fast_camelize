@@ -53,7 +53,7 @@ RSpec.describe FastCamelize do
   end
 
   it 'downcases the first letter' do
-    expect(FastCamelize.camelize('Capital', false, [], 0)).to eq 'capital'
+    expect(FastCamelize.camelize('Capital', false, [])).to eq 'capital'
   end
 
   it 'camelizes correctly with acronyms' do
