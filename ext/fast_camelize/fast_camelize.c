@@ -21,29 +21,6 @@ typedef struct output_builder {
 
 } output_builder_t;
 
-/* static void */
-/* builder_result_push_char(builder_t *builder, unsigned int character, int size, */
-                         /* rb_encoding *encoding) { */
-  /* if (character_is_upper(character)) { */
-    /* if (builder.pushNext == 1) { */
-      /* builder.pushNext = 0; */
-      /* builder_result_push_literal(builder, '_'); */
-    /* } */
-
-    /* builder.result[builder.result_size++] = (char) character - 'A' + 'a'; */
-    /* return; */
-  /* } */
-
-  /* builder.pushNext = (character_is_lower(character) || character_is_digit(character)); */
-
-  /* if (encoding == NULL) { */
-    /* builder.result[builder.result_size++] = (char) character; */
-  /* } else { */
-    /* rb_enc_mbcput(character, &builder.result[builder.result_size], encoding); */
-    /* builder.result_size += size; */
-  /* } */
-/* } */
-
 output_builder_t * make_builder() {
   return (output_builder_t *) malloc(sizeof(output_builder_t));
 }
@@ -52,18 +29,25 @@ char * make_result_buffer(long len) {
   return (char *) malloc(len * sizeof(unsigned int));
 }
 
+// http://layerlab.org/2018/01/30/how-i-tokenize-a-string-in-c.html
+// str is a pointer to the beginning of your string. More specifically, it is a pointer to the position first character in some string that you want to parse.
+// str_len is the length of that string. This does not have to be the full string, just the bit you care about.
+// s the index of the start of your token
+// e the index of the end of your token
+// delim is the character that you want to delmit your string
+int scan_s(char *str, long str_len, int *s, int *e, const char delim) {
+  if (*e == str_len)
+      return -1;
+  for (*e = *s; *e <= str_len; *e+=1) {
+      if ((str[*e] == delim) || (*e == str_len)) {
+          return *e - *s;
+      }
+  }
+  return -2;
+}
+
 static VALUE
 str_camelize(VALUE self, VALUE rb_input, VALUE rb_uppercase_first_letter, VALUE rb_acronyms_array) {
-
-#ifdef DEBUG
-  long int acronym_array_size = RARRAY_LEN(rb_acronyms_array);
-  if (acronym_array_size) {
-    printf("Got an array of size %ld\n", acronym_array_size);
-    for (int i = 0; i < acronym_array_size; i++) {
-      printf("index %d: %s\n", i, RSTRING_PTR(rb_ary_entry(rb_acronyms_array, i)));
-    }
-  }
-#endif
 
   VALUE rb_string;
 
@@ -75,12 +59,32 @@ str_camelize(VALUE self, VALUE rb_input, VALUE rb_uppercase_first_letter, VALUE 
       rb_string = rb_sym_to_s(rb_input);
       break;
     default:
-      rb_raise(rb_eRuntimeError, "wrong argument type ");
+      rb_raise(rb_eRuntimeError, "wrong argument type");
   }
 
-  char resultBuffer[1024];
+#ifdef DEBUG
+  long int acronym_array_size = RARRAY_LEN(rb_acronyms_array);
+  if (acronym_array_size) {
+    printf("Got an array of size %ld\n", acronym_array_size);
+    for (int i = 0; i < acronym_array_size; i++) {
+      printf("index %d: %s\n", i, RSTRING_PTR(rb_ary_entry(rb_acronyms_array, i)));
+    }
+  }
 
-  Check_Type(rb_string, T_STRING);
+  char *tok;
+  int s = 0, e = 0;
+  char *tmp_string = RSTRING_PTR(rb_string);
+  while (scan_s(tmp_string, RSTRING_LEN(rb_string), &s, &e, '_') >= 0 ) {
+    tok = (char *) malloc((e-s + 1) * sizeof(char));
+    stpncpy(tok, tmp_string + s, e-s);
+    tok[e-s]='\0';
+    printf("%s\n", tok);
+    free(tok);
+    s = e + 1;
+  }
+#endif
+
+  char resultBuffer[1024];
 
   output_builder_t builder;
   int need_to_free_builder_buffer = 0;

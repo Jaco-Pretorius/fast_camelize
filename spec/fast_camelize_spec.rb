@@ -89,4 +89,8 @@ RSpec.describe FastCamelize do
       expect(FastCamelize.camelize(camel, true, acronyms)).to eq camel
     end
   end
+
+  it 'works' do
+    expect(FastCamelize.camelize('application_controller', true, [])).to eq 'ApplicationController'
+  end
 end
